@@ -3,7 +3,9 @@ message: "If you use this software, please cite both the paper and the software.
 title: "cidmodel: forward model of coseismic ionospheric disturbances from finite-fault and point sources"
 type: software
 version: 1.0.1
+doi: 10.5281/zenodo.22961716
 license: MIT
+repository-code: "https://github.com/mguerra96/cidmodel"
 authors:
   - family-names: Guerra
     given-names: Marco

@@ -1,5 +1,8 @@
 # cidmodel
 
+[![Software DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22961716.svg)](https://doi.org/10.5281/zenodo.22961716)
+[![Data DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22958847.svg)](https://doi.org/10.5281/zenodo.22958847)
+
 Forward model of the coseismic ionospheric disturbance (CID) of the
 28 March 2025 Mw 7.7 Myanmar (Mandalay) earthquake, and the code that produces
 every figure of the accompanying paper:
@@ -148,4 +151,8 @@ when reusing them.
 ## License and citation
 
 The code is released under the MIT License (see `LICENSE`). If you use it,
-please cite the paper above and this software (see `CITATION.cff`).
+please cite the paper above and this software (see `CITATION.cff`). The
+software is archived on Zenodo:
+[doi:10.5281/zenodo.22961716](https://doi.org/10.5281/zenodo.22961716). This
+DOI always resolves to the latest release; each release also has its own
+version DOI, listed on that page.
