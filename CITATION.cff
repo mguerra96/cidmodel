@@ -1,0 +1,57 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite both the paper and the software."
+title: "cidmodel: forward model of coseismic ionospheric disturbances from finite-fault and point sources"
+type: software
+version: 1.0.0
+license: MIT
+authors:
+  - family-names: Guerra
+    given-names: Marco
+    email: marco.guerra@ingv.it
+    affiliation: "Istituto Nazionale di Geofisica e Vulcanologia (INGV), Rome, Italy"
+keywords:
+  - coseismic ionospheric disturbances
+  - GNSS TEC
+  - acoustic ray tracing
+  - finite fault
+  - 2025 Myanmar earthquake
+references:
+  - type: dataset
+    title: "Observations and model output for \"The 2025 Mw 7.7 Myanmar Earthquake: Finite Fault Versus Point Source in Modeling Coseismic Ionospheric Disturbances\""
+    doi: 10.5281/zenodo.22958847
+    url: "https://doi.org/10.5281/zenodo.22958847"
+    publisher:
+      name: Zenodo
+    version: "1.0"
+    authors:
+      - family-names: Guerra
+        given-names: Marco
+      - family-names: Cesaroni
+        given-names: Claudio
+      - family-names: Astafyeva
+        given-names: Elvira
+      - family-names: Ouar
+        given-names: Ines Dahlia
+      - family-names: Spogli
+        given-names: Luca
+preferred-citation:
+  type: article
+  title: "The 2025 Mw 7.7 Myanmar Earthquake: Finite Fault Versus Point Source in Modeling Coseismic Ionospheric Disturbances"
+  status: submitted
+  journal: "Journal of Geophysical Research: Space Physics"
+  authors:
+    - family-names: Guerra
+      given-names: Marco
+      affiliation: "Istituto Nazionale di Geofisica e Vulcanologia (INGV), Rome, Italy"
+    - family-names: Cesaroni
+      given-names: Claudio
+      affiliation: "Istituto Nazionale di Geofisica e Vulcanologia (INGV), Rome, Italy"
+    - family-names: Astafyeva
+      given-names: Elvira
+      affiliation: "Institut de Physique du Globe de Paris (IPGP), Paris, France"
+    - family-names: Ouar
+      given-names: Ines Dahlia
+      affiliation: "Institut de Physique du Globe de Paris (IPGP), Paris, France; Université Paris Cité, Paris, France"
+    - family-names: Spogli
+      given-names: Luca
+      affiliation: "Istituto Nazionale di Geofisica e Vulcanologia (INGV), Rome, Italy"

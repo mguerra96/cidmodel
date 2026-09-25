@@ -1,0 +1,26 @@
+# Conda environment for cidmodel.  Versions are the ones the paper's results
+# and figures were produced with.
+#
+#   conda env create -f environment.yml
+#   conda activate cidmodel
+name: cidmodel
+channels:
+  - conda-forge
+dependencies:
+  - python=3.14
+  - numpy=2.4
+  - scipy=1.17
+  - numba=0.66
+  - pandas=3.0
+  - pyarrow=25
+  - matplotlib=3.10
+  - cartopy=0.25
+  - obspy=1.5
+  - pip
+  - pip:
+      # background models: NRLMSISE-00, IRI-2020, IGRF
+      - nrlmsise00==0.1.2
+      - iri20py==0.0.5
+      - ppigrf==2.1.0
+      # this package, editable (it finds data/ relative to the repository)
+      - -e .

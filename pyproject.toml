@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cidmodel"
+version = "1.0.0"
+description = "Forward model of coseismic ionospheric disturbances from finite-fault and point sources, applied to the 2025 Mw 7.7 Myanmar earthquake"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Marco Guerra", email = "marco.guerra@ingv.it" }]
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2.0",
+    "scipy>=1.13",
+    "numba>=0.60",
+    "pandas>=2.2",
+    "pyarrow>=15",
+    "nrlmsise00>=0.1.2",
+    "iri20py>=0.0.5",
+    "ppigrf>=2.0",
+]
+
+[project.optional-dependencies]
+# Needed only to draw the figures (plots/, make_figures.py).
+figures = [
+    "matplotlib>=3.8",
+    "cartopy>=0.23",
+    "obspy>=1.4",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+extend-exclude = ["archive", "scratch", "eq_env", "paper"]
+
+[tool.ruff.lint]
+# Correctness only (pyflakes + syntax errors); no style rules.
+select = ["F", "E9"]
