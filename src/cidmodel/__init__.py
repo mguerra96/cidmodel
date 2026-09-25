@@ -20,4 +20,4 @@ Modules, in pipeline order:
     continuity    dNe from the continuity equation
     stec_los      synthetic slant TEC along GNSS lines of sight
 """
-__version__ = '1.0.0'
+__version__ = '1.0.1'

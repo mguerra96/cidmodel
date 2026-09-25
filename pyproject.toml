@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cidmodel"
-version = "1.0.0"
+version = "1.0.1"
 description = "Forward model of coseismic ionospheric disturbances from finite-fault and point sources, applied to the 2025 Mw 7.7 Myanmar earthquake"
 readme = "README.md"
 license = "MIT"

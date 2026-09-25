@@ -1,0 +1,28 @@
+{
+  "upload_type": "software",
+  "title": "cidmodel: forward model of coseismic ionospheric disturbances from finite-fault and point sources",
+  "version": "1.0.1",
+  "license": "mit",
+  "creators": [
+    {
+      "name": "Guerra, Marco",
+      "affiliation": "Istituto Nazionale di Geofisica e Vulcanologia (INGV)"
+    }
+  ],
+  "description": "<p>Forward model of the coseismic ionospheric disturbance (CID) of the 28 March 2025 Mw 7.7 Myanmar (Mandalay) earthquake, and the code that produces every figure of the accompanying paper \"The 2025 Mw 7.7 Myanmar Earthquake: Finite Fault Versus Point Source in Modeling Coseismic Ionospheric Disturbances\" (Guerra, Cesaroni, Astafyeva, Ouar &amp; Spogli; submitted to JGR: Space Physics).</p><p>The model radiates an acoustic pulse from the USGS finite-fault model or from a point source at the epicentre, ray-traces it through a windy, absorbing atmosphere (NRLMSISE-00, HWM14), couples it into the ionosphere along the geomagnetic field (IRI-2020, IGRF), and integrates the resulting electron-density perturbation along each GNSS line of sight into synthetic slant TEC.</p><p>The observation tables and model cubes needed to run it are archived separately at https://doi.org/10.5281/zenodo.22958847.</p>",
+  "keywords": [
+    "coseismic ionospheric disturbances",
+    "GNSS TEC",
+    "acoustic ray tracing",
+    "finite fault",
+    "2025 Myanmar earthquake"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "10.5281/zenodo.22958847",
+      "relation": "requires",
+      "scheme": "doi",
+      "resource_type": "dataset"
+    }
+  ]
+}

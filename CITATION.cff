@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "If you use this software, please cite both the paper and the software."
 title: "cidmodel: forward model of coseismic ionospheric disturbances from finite-fault and point sources"
 type: software
-version: 1.0.0
+version: 1.0.1
 license: MIT
 authors:
   - family-names: Guerra
