@@ -112,7 +112,8 @@ def main():
                         c=d['az_deg'], cmap='twilight', vmin=0, vmax=360,
                         marker='o', alpha=.85, edgecolor='k', lw=.4, zorder=3)
         cb = fig.colorbar(sc, ax=ax, pad=.015)
-        cb.set_label('IPP azimuth from epicentre [deg]', fontsize=10)
+        cb.set_label('IPP azimuth from epicenter [deg]', fontsize=16)
+        cb.ax.tick_params(labelsize=14)
         # No pick-count legend: the arc count is already in the title.
         print(f'  {len(d)} picks')
         leg1 = None
@@ -138,17 +139,19 @@ def main():
     # 2026-09-17 and have been removed -- on these axes they invited the picks
     # to be read as a single propagation speed, which the concave curve is not.
     t0_min = pf[1] / 60.0
-    ax.axvline(t0_min, color='0.45', lw=1.0, ls='-', alpha=.7, zorder=2)
-    # placed low, where the references sweep the corner empty -- the upper-left
-    # is taken by the fit legend
-    ax.annotate('t$_0$ = %.1f min (fitted):\nclimb to IPP height' % t0_min,
-                xy=(t0_min + 0.12, x[m].max() * 0.055), fontsize=8.5,
-                color='0.35', va='bottom', ha='left', rotation=90)
+    ax.axvline(t0_min, color='0.3', lw=1.4, ls='-', alpha=.8, zorder=2)
+    # horizontal, in the empty band under the fit legend; no t0 symbol, which
+    # the paper uses for the pulse centre of Eq. 1
+    ax.annotate('intercept = %.1f min:\nclimb to IPP height' % t0_min,
+                xy=(t0_min + 0.15, x[m].max() * 0.86), fontsize=15,
+                color='0.15', va='top', ha='left',
+                bbox=dict(boxstyle='round,pad=0.3', fc='white', ec='0.6',
+                          alpha=.92))
 
     handles = [Line2D([], [], color='k', ls='--', lw=1.5,
                       label='single-line fit: %.0f m/s (r=%.2f)'
                             % (1000.0 / pf[0], r))]
-    ax.add_artist(ax.legend(handles=handles, fontsize=9, loc='upper left',
+    ax.add_artist(ax.legend(handles=handles, fontsize=14, loc='upper left',
                             framealpha=.92))
 
     # period -> size key, along the bottom where the data is sparse (the
@@ -159,12 +162,14 @@ def main():
                  markersize=np.sqrt(size_from_period(t, T_lo, T_hi)),
                  label='%d s' % t) for t in ticks]
     ax.add_artist(ax.legend(handles=sh, title='picked period (marker area)',
-                            fontsize=9, loc='lower right', ncol=2,
+                            fontsize=14, title_fontsize=14,
+                            loc='lower right', ncol=2,
                             framealpha=.92, labelspacing=1.5, borderpad=0.9,
                             handletextpad=1.2, columnspacing=1.4))
 
-    ax.set_ylabel(xlabel, fontsize=12)
-    ax.set_xlabel('%s [min after origin]' % tlab, fontsize=12)
+    ax.set_ylabel(xlabel, fontsize=17)
+    ax.set_xlabel('%s [min after origin]' % tlab, fontsize=17)
+    ax.tick_params(labelsize=15)
     # Start the time axis at 8 min: nothing is picked before ~9 min (onset) or
     # ~10.3 min (crest), so the band below that is empty and only compresses the
     # data.  8 rather than 10 keeps the earliest onsets on-axis, so the same
@@ -177,7 +182,7 @@ def main():
     ax.grid(alpha=.25)
     ax.set_axisbelow(True)
     ax.set_title('%s vs range  (%d arcs; marker area proportional to period)'
-                 % (tlab, len(d)), fontsize=13)
+                 % (tlab, len(d)), fontsize=17)
 
     out = paths.fig('travel_time%s%s%s.png'
                     % (xtag, ttag, '_by_constellation' if by_con else ''))
