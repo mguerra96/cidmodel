@@ -1,7 +1,7 @@
 """Coordinate transforms and the model grid.
 
 Flat-Earth projection centred on the epicentre (x east, y north, z altitude),
-the `Grid` container, and the domain-of-validity mask.
+and the `Grid` container.
 """
 from dataclasses import dataclass
 
@@ -41,33 +41,9 @@ class Grid:
     def shape(self):
         return (len(self.x), len(self.y), len(self.z))
 
-    @property
-    def n_nodes(self):
-        return len(self.x) * len(self.y) * len(self.z)
-
     def meshgrid(self):
         """Return XX, YY, ZZ each of shape (nx, ny, nz)."""
         return np.meshgrid(self.x, self.y, self.z, indexing='ij')
-
-    def horizontal_polar(self):
-        """
-        Range (km) and azimuth (deg CW from N) of each column from the origin.
-        Returns two (nx, ny) arrays.
-        """
-        XX, YY = np.meshgrid(self.x, self.y, indexing='ij')
-        rng = np.hypot(XX, YY)
-        az = (np.degrees(np.arctan2(XX, YY)) + 360.0) % 360.0
-        return rng, az
-
-    def describe(self):
-        nx, ny, nz = self.shape
-        return (f"Grid {nx} x {ny} x {nz} = {self.n_nodes:,} nodes\n"
-                f"  x: {self.x.min():+.0f} .. {self.x.max():+.0f} km "
-                f"(step {self.x[1]-self.x[0]:.0f})\n"
-                f"  y: {self.y.min():+.0f} .. {self.y.max():+.0f} km "
-                f"(step {self.y[1]-self.y[0]:.0f})\n"
-                f"  z: {self.z.min():.0f} .. {self.z.max():.0f} km "
-                f"(step {self.z[1]-self.z[0]:.0f})")
 
 
 def model_grid(half_km=HORIZ_HALF_KM, step_km=HORIZ_STEP_KM,

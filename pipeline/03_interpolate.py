@@ -11,9 +11,13 @@ its settled defaults are documented in `cidmodel.interpolation`.
     python pipeline/03_interpolate.py --no-paired
 """
 import argparse
+import warnings
 
 from cidmodel import deposit as D
 from cidmodel.interpolation import AXISYM_BINS, interpolate_deposit
+
+# Script-level, so spawned workers (which re-import this module) inherit it.
+warnings.filterwarnings('ignore')
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])

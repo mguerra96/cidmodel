@@ -77,8 +77,7 @@ import math
 import numpy as np
 from numba import njit, prange
 
-SQRT2 = math.sqrt(2.0)
-PI_QUARTER = math.pi ** 0.25
+from .sources import n_wave
 
 # The one broadening coefficient: sig_eff = B_LIN * t_w (Mikesell form).
 # Fitted 2026-09-18 against the CUBE's t_w -- the same variable sig_eff is
@@ -118,10 +117,7 @@ def _accumulate_source(t_w, kx, ky, kz, a_prop, t_eval, t_rupture,
             continue
         # Mikesell sig = b*t_w, through the origin (no t_w0, no floor).
         sig = b_lin * tw
-        # compression-first N-wave (negated Gaussian derivative)
-        tau = t_eval - (t_rupture + tw)
-        amp = -(SQRT2 / (sig ** 1.5 * PI_QUARTER)) * tau * \
-            math.exp(-tau * tau / (2.0 * sig * sig))
+        amp = n_wave(t_eval, t_rupture + tw, sig)   # compression-first
         ap = a_prop[i]
         if math.isfinite(ap):
             amp *= ap
@@ -174,3 +170,24 @@ def neutral_velocity_field_numba(grid, cube, sources, t_eval,
     vn[..., 1] = vny.reshape(nx, ny, nz)
     vn[..., 2] = vnz.reshape(nx, ny, nz)
     return vn
+
+
+if __name__ == '__main__':
+    # Self-check: `python -m cidmodel.coupling`.
+    # Compression first -- the leading lobe (before t0) is positive.  This
+    # sign pairs with -div in 04_cube.py; flipping either one inverts polarity.
+    assert n_wave(-20.0, 0.0, 20.0) > 0 > n_wave(20.0, 0.0, 20.0)
+    # The kernel is n_wave * a_prop * weight * k_hat, and a cell with any
+    # non-finite input contributes exactly 0.
+    tw = np.array([600.0, 650.0, np.nan, 700.0])
+    kx = np.array([0.6, 0.0, 1.0, np.nan])
+    ky = np.array([0.0, 0.8, 0.0, 0.0])
+    kz = np.array([0.8, 0.6, 0.0, 1.0])
+    ap = np.array([2.0, 3.0, 1.0, 1.0])
+    out = [np.zeros(4) for _ in range(3)]
+    _accumulate_source(tw, kx, ky, kz, ap, 700.0, 30.0, B_LIN, 0.5, *out)
+    want = n_wave(700.0, 30.0 + tw, B_LIN * tw) * ap * 0.5
+    for got, k in zip(out, (kx, ky, kz)):
+        assert np.allclose(got[:2], (want * k)[:2], rtol=1e-12)
+        assert np.all(got[2:] == 0.0)
+    print('coupling self-check: ok')

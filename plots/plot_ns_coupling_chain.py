@@ -59,6 +59,7 @@ from cidmodel.raytracing import RayCube
 from cidmodel.coupling import neutral_velocity_field_numba, B_LIN
 from cidmodel.ionosphere import ion_velocity
 from cidmodel.sources import binned_fault_sources
+from cidmodel.stec_los import open_dne
 
 KINDS = ('binned', 'point')
 LABEL = {'binned': 'finite fault', 'point': 'point source'}
@@ -68,14 +69,6 @@ def _sources(kind, g):
     if kind == 'point':
         return [dict(x=0.0, y=0.0, t_rupture_s=0.0, weight=1.0)]
     return binned_fault_sources(g, verbose=False)
-
-
-def _dne_cube(kind, gen):
-    """(sidecar, memmap) for one source model's dNe cube."""
-    meta = np.load(paths.require_cube(gen, f'dne_{kind}'), allow_pickle=True)
-    mm = np.lib.format.open_memmap(
-        paths.cube(str(meta['dne_memmap'])), mode='r')
-    return meta, mm
 
 
 def _ray_cube_for(gen, given):
@@ -90,7 +83,7 @@ def _ray_cube_for(gen, given):
     """
     declared = set()
     for kind in KINDS:
-        meta = np.load(paths.require_cube(gen, f'dne_{kind}'), allow_pickle=True)
+        meta = np.load(paths.require_cube(gen, f'dne_{kind}'))
         if 'ray_cube' in meta.files:
             declared.add(str(meta['ray_cube']))
     if len(declared) > 1:
@@ -133,14 +126,13 @@ def main(cube_path, gen, t=720.0, x_km=0.0, a0=None, pct=99.5, out=None):
     dne_panels = {}
     scales = {}
     for kind in KINDS:
-        meta, mm = _dne_cube(kind, gen)
+        meta, mm, stored_a0 = open_dne(paths.require_cube(gen, f'dne_{kind}'))
         it = int(np.argmin(np.abs(np.asarray(meta['times'], float) - t)))
         # A0 comes from the sidecar, where 05_synth_stec.py put the fitted
         # value -- so this row is drawn at the same scale as the synth_stec
         # columns and the dNe cuts, without the number being retyped here.
         # A cube that has not been fitted still carries 1.0 (the raw field).
-        scale = (float(meta['A0']) if 'A0' in meta.files else 1.0) \
-            if a0 is None else float(a0[KINDS.index(kind)])
+        scale = stored_a0 if a0 is None else float(a0[KINDS.index(kind)])
         scales[kind] = scale
         # 1e10, not 1e8: the calibrated peak is a few times 1e11, which reads
         # as a four-digit 2800 in 1e8 units.  In 1e10 the same field is ~280.

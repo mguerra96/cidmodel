@@ -11,7 +11,6 @@ ne0 / B_field / ray_cube.  Streams float32 frames to a disk memmap
 (data/cubes/dne_*.npy) with a small .npz sidecar.
 
   --sources binned   merged fault elements onto grid nodes (~30; default)
-  --sources full     all ~124 USGS elements
   --sources point    single source at the epicentre (finite-fault vs point)
 
 The N-wave pulse width follows sig_eff = B_LIN * t_w, a constant of
@@ -29,7 +28,7 @@ import numpy as np
 from cidmodel import paths
 from cidmodel.geometry import model_grid
 from cidmodel.raytracing import RayCube
-from cidmodel.sources import binned_fault_sources, usgs_fault_sources
+from cidmodel.sources import binned_fault_sources
 from cidmodel.ionosphere import ion_velocity
 from cidmodel.continuity import divergence
 from cidmodel.coupling import neutral_velocity_field_numba, B_LIN
@@ -56,10 +55,10 @@ def _atomic_save_npz(path, **arrays):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--sources', choices=['full', 'binned', 'point'],
+    ap.add_argument('--sources', choices=['binned', 'point'],
                     default='binned',
-                    help="'full' = 124 USGS elements; 'binned' = merged onto the "
-                         "grid nodes (~30, faster + smoother); 'point' = a single "
+                    help="'binned' = USGS fault elements merged onto the "
+                         "grid nodes (~30); 'point' = a single "
                          "source at the epicentre for the finite-fault-vs-point "
                          "comparison")
     # REQUIRED, and deliberately so.  This defaulted to `paths.RAY_CUBE` until
@@ -84,7 +83,7 @@ def main():
     # Name both halves from the same tag: the sidecar records the memmap's
     # basename as `dne_memmap`, so they cannot be tagged independently without
     # the sidecar pointing at the wrong array.
-    stem = 'dne_point' if args.sources == 'point' else 'dne_binned'
+    stem = f'dne_{args.sources}'
     tag = paths.gen_suffix(args.out_tag)
     dne_mmap = paths.cube(f'{stem}{tag}.npy')
     dne_meta = paths.cube(f'{stem}{tag}.npz')
@@ -100,8 +99,6 @@ def main():
         src = [dict(x=0.0, y=0.0, t_rupture_s=0.0, weight=1.0)]
         print('  POINT source: single element at epicentre (0,0), t_rup=0',
               flush=True)
-    else:
-        src = usgs_fault_sources(verbose=False)
     ne0 = np.load(paths.NE0)
     B = np.load(paths.B_FIELD)
     times = np.arange(T_START, T_END + 1e-6, T_STEP)
@@ -112,7 +109,11 @@ def main():
           f'sig at t_w=650/1200 s = {B_LIN*650:.1f}/{B_LIN*1200:.1f} s',
           flush=True)
 
-    out = np.lib.format.open_memmap(dne_mmap, mode='w+', dtype=np.float32,
+    # Frames go to a temp file, renamed over the real one only once complete:
+    # opening the canonical .npy with 'w+' would wipe it at once, and an
+    # interrupted build would leave the old sidecar pointing at part-zero frames.
+    tmp_mmap = dne_mmap + '.tmp'
+    out = np.lib.format.open_memmap(tmp_mmap, mode='w+', dtype=np.float32,
                                     shape=(len(times),) + g.shape)
     accum = np.zeros(g.shape)
     prev = None
@@ -129,6 +130,8 @@ def main():
         out.flush()
         print('  frame %3d t=%4.0fs  %.1f s  |dNe|max=%.3e'
               % (i, t, time.time() - tf, np.abs(accum).max()), flush=True)
+    del out                                 # close the file before renaming it
+    os.replace(tmp_mmap, dne_mmap)
 
     # `ray_cube` records the cube this dNe was actually integrated against, so
     # the file answers its own provenance instead of relying on its name.  The

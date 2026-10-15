@@ -4,7 +4,6 @@ Everything the ray tracer and the amplitude model need about the background
 neutral atmosphere, from NRLMSISE-00 (density, temperature, composition) and
 HWM14 (horizontal winds):
 
-    sound_speed          c(z) from composition-weighted mean molecular mass
     query_hwm14_profile  zonal/meridional winds via the HWM14 conda env
     cached_wind_profile  those winds from data/inputs/, re-querying on a miss
     build_atmosphere     gridded c, U, V + interpolators for the ray ODEs
@@ -21,7 +20,7 @@ from nrlmsise00 import msise_flat
 from scipy.interpolate import interp1d
 
 from . import paths
-from .config import (EQ_LAT, EQ_LON, EQ_TIME, GAMMA, R_GAS, F107, AP, MOL_MASS,
+from .config import (EQ_LAT, EQ_LON, EQ_TIME, GAMMA, F107, AP,
                     HWM14_PY, RAY_ATM_MAX_KM, RAY_ATM_STEP_KM,
                     WIND_CACHE)
 
@@ -29,21 +28,6 @@ from .config import (EQ_LAT, EQ_LON, EQ_TIME, GAMMA, R_GAS, F107, AP, MOL_MASS,
 # ---------------------------------------------------------------------------
 # Sound speed and winds
 # ---------------------------------------------------------------------------
-
-def sound_speed(alt_km, lat=EQ_LAT, lon=EQ_LON):
-    """
-    Acoustic sound speed at altitude `alt_km` (km) from NRLMSISE-00.
-
-    c = sqrt(gamma R T / M), with M the composition-weighted mean molecular
-    mass.  Returns m/s.
-    """
-    o = msise_flat(EQ_TIME, float(alt_km), lat, lon, F107, F107, AP)
-    T = o[10]                                       # temperature (K)
-    n = np.array([o[0], o[1], o[2], o[3], o[4], 0, o[6], o[7]])  # number dens.
-    n_tot = n.sum()
-    M = (MOL_MASS * n).sum() / n_tot if n_tot > 0 else 0.029
-    return np.sqrt(GAMMA * R_GAS * T / M)
-
 
 def query_hwm14_profile(alts, lat=EQ_LAT, lon=EQ_LON,
                         time=None, ap=AP):
@@ -161,7 +145,8 @@ def build_atmosphere(alt_max=RAY_ATM_MAX_KM, alt_step=RAY_ATM_STEP_KM):
     z_grid = np.arange(0, alt_max + 1, alt_step, dtype=float)
 
     print("  Computing NRLMSISE-00 sound speed profile...")
-    c_grid = np.array([sound_speed(z) for z in z_grid])
+    # c = sqrt(gamma k_B T / m), m the composition-weighted mean molecular mass
+    c_grid = _transport(z_grid, EQ_LAT, EQ_LON, EQ_TIME, freq_hz=0.0)[2]
 
     U_grid, V_grid = cached_wind_profile(z_grid)
 
@@ -172,7 +157,7 @@ def build_atmosphere(alt_max=RAY_ATM_MAX_KM, alt_step=RAY_ATM_STEP_KM):
     # Second derivatives, for the paraxial (variational) ray system: dF/dy
     # differentiates the refraction term, which carries dc/dz and dW/dz, so it
     # needs d2c/dz2 and d2W/dz2.  Built once here rather than differenced
-    # per step -- see raytracing.ray_odes_spherical(with_jacobian=True).
+    # per step -- see raytracing.paraxial_odes_spherical.
     d2c_dz2 = np.gradient(dc_dz, z_grid * 1e3)
     d2U_dz2 = np.gradient(dU_dz, z_grid * 1e3)
     d2V_dz2 = np.gradient(dV_dz, z_grid * 1e3)
@@ -198,7 +183,7 @@ def build_atmosphere(alt_max=RAY_ATM_MAX_KM, alt_step=RAY_ATM_STEP_KM):
 
 def _transport(z_km, lat, lon, time, freq_hz):
     """
-    Shared NRLMSISE-00 evaluation for the absorption coefficient.
+    Shared NRLMSISE-00 evaluation for the sound speed and absorption.
 
     Returns (alpha, rho, c) -- absorption (Np/m), density (kg/m^3), sound speed
     (m/s) -- all on `z_km`.  alpha follows Mikesell et al. (2019) eq. A3:

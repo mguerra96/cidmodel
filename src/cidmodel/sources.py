@@ -16,9 +16,13 @@ are all drop-in interchangeable in the build.
 import math
 
 import numpy as np
+from numba import njit
 
 from .geometry import geo_to_km
 from .paths import FSP
+
+SQRT2 = math.sqrt(2.0)
+PI_QUARTER = math.pi ** 0.25
 
 
 def usgs_fault_sources(fsp_path=FSP, min_moment_frac=1e-4, verbose=True):
@@ -177,12 +181,15 @@ def binned_fault_sources(grid, sources=None, verbose=True):
     return out
 
 
+@njit(cache=False)
 def n_wave(t, t0, sigma):
     """
     N-wave source-time function: first derivative of a Gaussian.
 
     Mikesell et al. (2019) eq. 8, without the A_o / A_z amplitude factors
-    (applied separately).  Vectorised over `t`.
+    (applied separately).  Takes a float or a float array `t`.  Jitted so the
+    v_n kernel (coupling._accumulate_source) calls THIS formula rather than a
+    copy of it: the sign below is the one thing that must never drift.
 
     Polarity: COMPRESSION-first.  A regular earthquake N-wave leads with
     compression (upward gas push -> TEC increase on arrival), then rarefaction.
@@ -197,6 +204,6 @@ def n_wave(t, t0, sigma):
     times theirs for the same pulse -- sigma is NOT directly comparable between
     the two.  An N-wave of width sigma has dominant period ~ 4.44 sigma.
     """
-    tau = np.asarray(t, dtype=float) - t0
-    return -(math.sqrt(2.0) / (sigma ** 1.5 * math.pi ** 0.25)) * \
-           tau * np.exp(-tau ** 2 / (2.0 * sigma ** 2))
+    tau = t - t0
+    return -(SQRT2 / (sigma ** 1.5 * PI_QUARTER)) * \
+           tau * np.exp(-tau * tau / (2.0 * sigma * sigma))

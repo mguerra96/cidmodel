@@ -35,6 +35,7 @@ from matplotlib import cm, colors
 
 from cidmodel import paths
 from cidmodel.geometry import model_grid
+from cidmodel.stec_los import open_dne
 
 TIMES     = [660.0, 750.0, 840.0]     # rows (s after origin)
 Z_SLICES  = [250.0, 300.0, 350.0]            # altitudes per source (km)
@@ -88,7 +89,7 @@ def main(tag, times=None, out_file=None, a0=None):
     # ---- dNe straight off the cubes (sidecar for times + A0, memmap for data)
     cubes = {}
     for kind in ('binned', 'point'):
-        meta = np.load(paths.cube(f'dne_{kind}{tag}.npz'), allow_pickle=True)
+        meta, frames, _stored = open_dne(paths.cube(f'dne_{kind}{tag}.npz'))
         # The source scale is a FITTED result: 04_cube.py writes A0 = 1.0
         # and 05_synth_stec.py replaces it with the fitted value once that
         # exists, so reading it here draws these slices at the same scale as
@@ -97,17 +98,12 @@ def main(tag, times=None, out_file=None, a0=None):
         # Each source model has its OWN fitted A0 (2026-09-18), so --a0 takes
         # one value per model in the order (binned, point); a single value is
         # applied to both, which is only meaningful for --a0 1 (raw field).
-        _stored = float(meta['A0']) if 'A0' in meta.files else 1.0
         if a0 is None:
             _scale = _stored
         else:
             _scale = float(a0[0] if len(a0) == 1
                            else a0[('binned', 'point').index(kind)])
-        cubes[kind] = (
-            np.asarray(meta['times'], float),
-            _scale,
-            np.lib.format.open_memmap(
-                paths.cube(str(meta['dne_memmap'])), mode='r'))
+        cubes[kind] = (np.asarray(meta['times'], float), _scale, frames)
 
     # panels[(row, col)] = slice ; cols 0-2 fault z, cols 3-5 point z
     panels = {}

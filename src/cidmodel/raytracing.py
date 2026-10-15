@@ -5,9 +5,8 @@ evaluated once above the epicentre, the atmosphere is horizontally
 homogeneous and a single fan of rays per azimuth serves every fault element
 (the solution just translates).  This module:
 
-    ray_odes_spherical              moving-medium ray equations (Lighthill)
-    paraxial_odes_spherical         variational system for dy/dtheta0
-    trace_ray                       integrate one ray with solve_ivp
+    paraxial_odes_spherical         moving-medium ray equations (Lighthill)
+                                    + variational system for dy/dtheta0
     trace_ray_paraxial              a ray together with its paraxial derivative
     RayCube                         ray parameters on a regular (az,rng,z) cube
 
@@ -39,9 +38,33 @@ R_EARTH_M = R_EARTH_KM * 1e3
 # Ray equations in a moving atmosphere
 # ---------------------------------------------------------------------------
 
-def ray_odes_spherical(t, state, az_rad, interps):
+def paraxial_odes_spherical(t, state8, az_rad, interps):
     """
-    Ray equations in a spherically stratified moving atmosphere.
+    Ray + paraxial system in spherical geometry, state
+    [s, z, ps, pz, Ps, Pz, Pps, Ppz].
+
+    The trailing four are P = dy/dtheta0, the derivative of the ray state with
+    respect to TAKE-OFF ANGLE (radians), obeying the variational equation
+
+        dP/dt = (dF/dy) P
+
+    integrated alongside the ray.  This replaces differencing adjacent rays:
+    each ray carries its own exact ds/dtheta0, so the ray-tube Jacobian needs
+    no neighbours, has no finite-difference noise, and stays valid where the
+    fan is sparse or non-uniform (near the turning-point cutoff, where the old
+    np.gradient estimate was worst).  infraGA does the same thing -- its
+    solution vector carries d(r,theta,phi)/d(launch angles) as state and
+    assembles `jacobian()` from them.
+
+    dF/dy is written out analytically and FUSED with F so the six atmosphere
+    lookups are done once per call and shared.  That matters: a plain RHS call
+    is ~100% interpolator overhead, so evaluating dF/dy by differencing F
+    (8 extra RHS calls) costs 71x, while this costs 2.3x.  Verified against
+    that numeric-Jacobian version to 2e-3, and against two-ray finite
+    differencing of ds/dtheta0 to 3e-3.
+
+    The ray part F is the moving-medium ray system in a spherically
+    stratified atmosphere.
 
     State [s (m), z (m), ps, pz]: s = R*theta is surface arc length (directly
     comparable with the flat-Earth x), z is altitude above the curved surface
@@ -76,58 +99,6 @@ def ray_odes_spherical(t, state, az_rad, interps):
     interpolation floor; (b) dp_theta identically 0; (c) travel time within
     +0.06..+0.14 s of infraGA-sph at az 90 and az 270 over 100-450 km on an
     identical NRLMSISE-00/HWM14 profile.
-    """
-    s, z, ps, pz = state
-    z_km = z / 1e3
-    c    = float(interps['c'](z_km))
-    dcdz = float(interps['dcdz'](z_km))
-    U    = float(interps['U'](z_km))
-    V    = float(interps['V'](z_km))
-    dUdz = float(interps['dUdz'](z_km))
-    dVdz = float(interps['dVdz'](z_km))
-
-    W_along = U * math.sin(az_rad) + V * math.cos(az_rad)
-    dWdz    = dUdz * math.sin(az_rad) + dVdz * math.cos(az_rad)
-
-    r = R_EARTH_M + z
-    g = R_EARTH_M / r
-
-    gps = g * ps
-    p_mag = math.hypot(pz, gps)
-
-    return [c * g * gps / p_mag + g * W_along,
-            c * pz / p_mag,
-            0.0,
-            (-dcdz * p_mag
-             + c * gps * gps / (r * p_mag)
-             + gps * W_along / r
-             - gps * dWdz)]
-
-
-def paraxial_odes_spherical(t, state8, az_rad, interps):
-    """
-    Ray + paraxial system in spherical geometry, state
-    [s, z, ps, pz, Ps, Pz, Pps, Ppz].
-
-    The trailing four are P = dy/dtheta0, the derivative of the ray state with
-    respect to TAKE-OFF ANGLE (radians), obeying the variational equation
-
-        dP/dt = (dF/dy) P
-
-    integrated alongside the ray.  This replaces differencing adjacent rays:
-    each ray carries its own exact ds/dtheta0, so the ray-tube Jacobian needs
-    no neighbours, has no finite-difference noise, and stays valid where the
-    fan is sparse or non-uniform (near the turning-point cutoff, where the old
-    np.gradient estimate was worst).  infraGA does the same thing -- its
-    solution vector carries d(r,theta,phi)/d(launch angles) as state and
-    assembles `jacobian()` from them.
-
-    dF/dy is written out analytically and FUSED with F so the six atmosphere
-    lookups are done once per call and shared.  That matters: a plain RHS call
-    is ~100% interpolator overhead, so evaluating dF/dy by differencing F
-    (8 extra RHS calls) costs 71x, while this costs 2.3x.  Verified against
-    that numeric-Jacobian version to 2e-3, and against two-ray finite
-    differencing of ds/dtheta0 to 3e-3.
     """
     s, z, ps, pz = state8[0], state8[1], state8[2], state8[3]
     z_km = z / 1e3
@@ -187,65 +158,15 @@ def paraxial_odes_spherical(t, state8, az_rad, interps):
             J31 * P1 + J32 * P2 + J33 * P3]
 
 
-def make_events(alt_max_m):
-    """Terminal solve_ivp events: ray hits ground (z=0) or the ceiling."""
-    def hit_ground(t, state, az_rad, interps):  return state[1]
-    def hit_ceiling(t, state, az_rad, interps): return state[1] - alt_max_m
-    hit_ground.terminal  = True;  hit_ground.direction  = -1
-    hit_ceiling.terminal = True;  hit_ceiling.direction = +1
-    return [hit_ground, hit_ceiling]
-
-
-def trace_ray(zenith_deg, az_deg, interps,
-              x0=0.0, z0=0.0, t_max=RAY_T_MAX, step_m=RAY_STEP_M,
-              alt_max_km=None):
-    """
-    Trace a single acoustic ray.
-
-    zenith_deg : launch zenith angle (0 = straight up, 90 = horizontal).
-    az_deg     : propagation azimuth (deg CW from N).
-    interps    : atmospheric interpolators from atmosphere.build_atmosphere().
-    alt_max_km : ceiling at which integration terminates.  Defaults to the
-        ray-tracing atmosphere ceiling (RAY_ATM_MAX_KM).  MUST match the
-        ceiling the atmosphere was built to -- if the atmosphere reaches higher
-        but this is left low, every ray silently terminates early and targets
-        above it look unreachable.
-
-    Returns a scipy ODE solution with dense_output=True.
-    """
-    if alt_max_km is None:
-        alt_max_km = RAY_ATM_MAX_KM
-    az_rad = math.radians(az_deg)
-    launch_deg = 90.0 - zenith_deg          # zenith -> elevation
-    c0 = float(interps['c'](z0 / 1e3))
-    U0 = float(interps['U'](z0 / 1e3))
-    V0 = float(interps['V'](z0 / 1e3))
-    W0 = U0 * math.sin(az_rad) + V0 * math.cos(az_rad)
-
-    ang = math.radians(launch_deg)
-    # Launch ON the eikonal manifold H = c|p| + px W - 1 = 0.  For a unit
-    # direction (cos ang, sin ang) the wind projects onto the ray as
-    # cos(ang) W, NOT the bare W: only a horizontally-travelling ray is
-    # advected at the full wind speed.  The previous c_eff = c0 + W0 left
-    # H(0) up to 4e-3 off the manifold, with a sign set by the wind direction,
-    # so east- and west-going fans started with opposite systematic errors.
-    c_eff0 = c0 + math.cos(ang) * W0
-
-    px = math.cos(ang) / c_eff0             # horizontal slowness
-    pz = math.sin(ang) / c_eff0             # vertical slowness
-
-    return solve_ivp(
-        ray_odes_spherical,
-        [0, t_max], [x0, z0, px, pz],
-        args=(az_rad, interps),
-        events=make_events(alt_max_km * 1e3),
-        max_step=step_m, rtol=1e-6, atol=1e-8,
-        dense_output=True,
-    )
-
-
 def _launch_state(zenith_deg, az_rad, interps, x0=0.0, z0=0.0):
-    """Initial [x, z, px, pz] on the eikonal manifold (see `trace_ray`)."""
+    """Initial [x, z, px, pz] on the eikonal manifold H = c|p| + px W - 1 = 0.
+
+    For a unit direction (cos ang, sin ang) the wind projects onto the ray as
+    cos(ang) W, NOT the bare W: only a horizontally-travelling ray is advected
+    at the full wind speed.  The pre-2026-08-03 c_eff = c0 + W0 left H(0) up to
+    4e-3 off the manifold, with a sign set by the wind direction, so east- and
+    west-going fans started with opposite systematic errors.
+    """
     ang = math.radians(90.0 - zenith_deg)
     c0 = float(interps['c'](z0 / 1e3))
     U0 = float(interps['U'](z0 / 1e3))
@@ -342,12 +263,6 @@ class RayCube:
     kz: np.ndarray          # k_hat up
     amp: np.ndarray = None  # (n_az, n_rng, n_z) A_z * A_w, combined; 1.0
                             # everywhere if the deposit carried no amplitude
-
-    def save(self, path):
-        """Cache the resampled cube to a .npz file."""
-        np.savez_compressed(path, az=self.az, rng=self.rng, z=self.z,
-                            t_w=self.t_w, kx=self.kx, ky=self.ky, kz=self.kz,
-                            amp=self.amp)
 
     @classmethod
     def load(cls, path):

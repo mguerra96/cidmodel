@@ -58,7 +58,9 @@ def main(wanted):
         r = subprocess.run([sys.executable, os.path.join(HERE, 'plots', script), *args],
                            capture_output=True, text=True)
         src = paths.fig(produced)
-        if r.returncode or not os.path.exists(src):
+        # A file older than this run is last time's figure, not this one.
+        if (r.returncode or not os.path.exists(src)
+                or os.path.getmtime(src) < t0):
             failed.append(key)
             print(f'Figure {key:3s} FAILED ({script})\n{r.stderr[-2000:]}')
             continue

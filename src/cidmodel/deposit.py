@@ -170,7 +170,7 @@ def _fields(sol, az_rad, theta0_deg, interps, zf, alpha, rho, rho_ground,
     # This replaced the old `max(xs, 10.0)` clamp's job of capping the
     # divergence, which masked two thirds of it (11.5x -> 3.3x).
     #
-    # ds/dt and dz/dt are inlined from ray_odes_spherical and evaluated on the
+    # ds/dt and dz/dt are inlined from paraxial_odes_spherical and evaluated on the
     # whole ray at once.  Calling it per sample cost ~400k interpreted calls
     # per azimuth (six scalar interpolator lookups each) and dominated the
     # build -- 45 s of a 63 s azimuth, against 15 s for the ODE solving itself.

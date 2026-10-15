@@ -8,8 +8,6 @@ low-res variant.
 import datetime
 import os
 
-import numpy as np
-
 # --- Event -----------------------------------------------------------------
 EQ_LAT  = 22.001
 EQ_LON  = 95.925
@@ -18,14 +16,11 @@ EQ_TIME = datetime.datetime(2025, 3, 28, 6, 20, 56)
 R_EARTH_KM = 6371.0
 
 # --- Neutral atmosphere (NRLMSISE-00 + HWM14) ------------------------------
-# Space-weather indices for the event epoch and gas constants for the sound
-# speed c = sqrt(gamma R T / M).
+# Space-weather indices for the event epoch, and the ratio of specific heats
+# for the sound speed c = sqrt(gamma k_B T / m) (atmosphere._transport).
 GAMMA  = 1.4          # ratio of specific heats
-R_GAS  = 8.314        # universal gas constant (J/mol/K)
 F107   = 150.0        # solar 10.7 cm flux index
 AP     = 4.0          # geomagnetic activity index
-# Mean molecular masses (kg/mol): He, O, N2, O2, Ar, -, H, N
-MOL_MASS = np.array([4, 16, 28, 32, 40, 0, 1, 14]) * 1e-3
 
 # HWM14 horizontal wind model.  Unlike NRLMSISE-00 (`nrlmsise00`), IRI-2020
 # (`iri20py`) and IGRF (`ppigrf`), which are all pip-installable, HWM14 has

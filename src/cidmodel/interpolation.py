@@ -26,7 +26,6 @@ Defaults are the settled configuration:
 """
 import os
 import time
-import warnings
 from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
@@ -34,8 +33,6 @@ import numpy as np
 from . import paths
 from . import deposit as D
 from .geometry import model_grid
-
-warnings.filterwarnings('ignore')
 
 KEYS = [f'{k}_{b}' for k in ('n', 'rays', 't', 'az_', 'aw', 'px', 'pz')
         for b in ('up', 'dn')]
@@ -84,6 +81,29 @@ def _interp_pair(job):
                                 rng, zc, alpha_km=a_km))
 
 
+def _centres_to_nodes(a, log=False):
+    """(n_az, n_r, n_z) values at range CELL CENTRES -> at the cell EDGES below.
+
+    Node i (range i*d_r) sits midway between centres i-1 and i, so its linear
+    interpolant is their mean.  Node 0 has only centre 0 inward of the fan's
+    first cell, and takes it.  A NaN neighbour is skipped rather than
+    propagated, so the fan's reach moves by at most half a cell -- the reach
+    the nearest-neighbour lookup gave it anyway.  `log` averages in log space
+    (amplitude spans decades).
+    """
+    v = np.asarray(a, float)
+    if log:
+        with np.errstate(divide='ignore', invalid='ignore'):
+            v = np.log(np.where(v > 0, v, np.nan))
+    inner = np.concatenate([v[:, :1], v[:, :-1]], axis=1)
+    fi, fv = np.isfinite(inner), np.isfinite(v)
+    n = fi.astype(float) + fv
+    with np.errstate(invalid='ignore', divide='ignore'):
+        out = (np.where(fi, inner, 0.0) + np.where(fv, v, 0.0)) / n
+    out[n == 0] = np.nan
+    return np.exp(out) if log else out
+
+
 def to_raycube(az, rng_c, z_c, amp, t_w, px, pz, verbose=True):
     """Recast the deposit's own layout into the one `RayCube` reads.
 
@@ -98,11 +118,15 @@ def to_raycube(az, rng_c, z_c, amp, t_w, px, pz, verbose=True):
               hands back whole altitude columns WITHOUT ever indexing z -- it
               trusts them to line up with the model grid.  Left alone, every
               column would be misregistered by 1.25 km and the grid's top
-              altitude never filled, with nothing raised.
+              altitude never filled, with nothing raised.  Both axes are
+              therefore MOVED, not relabelled: z by interpolation onto the
+              model levels, range by `_centres_to_nodes`.  (Until 2026-10-15
+              range was only relabelled, so every lookup read the cell 5 km
+              further out: +5-6 s on t_w over 200-1000 km at 300 km altitude.)
 
-      k       The deposit stores (px, pz) in its azimuth's vertical plane,
+      k     The deposit stores (px, pz) in its azimuth's vertical plane,
               already normalised.  ENU follows the convention used throughout
-              raytracing.py (sin = east, cos = north; see ray_odes_spherical W_along):
+              raytracing.py (sin = east, cos = north; see paraxial_odes_spherical W_along):
               kx = px sin(az), ky = px cos(az), kz = pz.
 
     Range resolution is deliberately NOT changed: 10 km against the old cube's
@@ -112,7 +136,14 @@ def to_raycube(az, rng_c, z_c, amp, t_w, px, pz, verbose=True):
     z_out = model_grid().z
     d_r = float(rng_c[1] - rng_c[0])
     rng_out = np.arange(len(rng_c), dtype=float) * d_r
+    assert np.allclose(rng_c - d_r / 2, rng_out), 'deposit rng must be centres from 0'
     n_az, n_r = len(az), len(rng_c)
+    amp = _centres_to_nodes(amp, log=True)
+    t_w = _centres_to_nodes(t_w)
+    px, pz = _centres_to_nodes(px), _centres_to_nodes(pz)
+    with np.errstate(invalid='ignore', divide='ignore'):
+        mag = np.hypot(px, pz)              # the average of two unit vectors
+        px, pz = px / mag, pz / mag         # is shorter than one
     dz_c = float(z_c[1] - z_c[0])
     # nearest source cell per target altitude, used to re-mask: np.interp would
     # otherwise carry the nearest finite value across a gap in the fan.
@@ -309,3 +340,22 @@ def interpolate_deposit(src_tag='', out_tag=None, n_jobs=None, alpha_km=D.ALPHA_
           f'amp max {np.nanmax(out["amp"][f]):.2e}')
     print(f'  |k| over filled cells: {np.nanmin(k):.4f} .. {np.nanmax(k):.4f} '
           f'(should be 1)')
+
+
+if __name__ == '__main__':
+    # Self-check of the RayCube registration: a field equal to its own range
+    # (or altitude) must come back equal to the cube's range (or z) axis.
+    # `python -m cidmodel.interpolation`
+    rng_c = np.arange(5.0, 200.0, 10.0)
+    z_c = model_grid().z[:-1] + 1.25
+    az = np.array([0.0, 90.0])
+    R, Z = np.meshgrid(rng_c, z_c, indexing='ij')
+    ones = np.ones((len(az),) + R.shape)
+    o = to_raycube(az, rng_c, z_c, amp=ones * R, t_w=ones * Z,
+                   px=ones, pz=ones * 0.0, verbose=False)
+    zin = (o['z'] >= z_c[0]) & (o['z'] <= z_c[-1])
+    assert np.allclose(o['amp'][:, 1:, zin], np.sqrt(o['rng'][1:, None] ** 2
+                                                     - 25.0), rtol=1e-6)
+    assert np.allclose(o['t_w'][:, :, zin], o['z'][zin], atol=1e-4)
+    assert np.allclose(o['kx'][1, :, zin], 1.0) and np.allclose(o['ky'][0, :, zin], 1.0)
+    print('interpolation self-check: ok')

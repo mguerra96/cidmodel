@@ -1,6 +1,6 @@
 """Step 5 -- add synthetic sTEC columns to tec_observations.parquet, on the observation times.
 
-The LOS integration in `stec_los.run_scan` produces synthetic sTEC on the
+The LOS integration in `stec_los.stec_series_tvar` produces synthetic sTEC on the
 CUBE's frame times (141 frames, 15 s, 0-2100 s).  The observations live on
 their own per-arc sampling (30 s, -1256 to 3244 s).  Comparing them therefore
 means interpolating one onto the other, which every plotting script has so far
@@ -49,7 +49,7 @@ than an absence (the model says nothing here).  The distinction matters for
 exactly the things this column exists to make easy: a detrend or an RMS over a
 window that runs off the end of the cube would silently average model zeros
 into the statistic.  Arcs the scan cannot illuminate ARE a real zero and are
-stored as such -- `run_scan` already distinguishes the two cases.
+stored as such -- `synth_for_source` distinguishes the two cases.
 
 Additive, not a rebuild
 -----------------------
@@ -163,7 +163,7 @@ def store_a0(source, tag, scale):
     every other key is copied through untouched.
     """
     path = paths.require_cube(tag, f'dne_{source}')
-    with np.load(path, allow_pickle=True) as d:
+    with np.load(path) as d:
         arrays = {k: d[k].copy() for k in d.files}
     was = float(arrays['A0']) if 'A0' in arrays else None
     arrays['A0'] = np.array(float(scale))
@@ -208,7 +208,11 @@ def main(sources, tag, suffix='', obs_path=None, a0=None, do_fit=True):
         if not suffix:
             store_a0(source, tag, scale)
 
-    obs.to_parquet(obs_path, index=False)
+    # Through a temp file: the table cannot be rebuilt from this repository,
+    # so an interrupted write must never leave it truncated.
+    tmp = obs_path + '.tmp'
+    obs.to_parquet(tmp, index=False)
+    os.replace(tmp, obs_path)
     print(f'\nwrote {obs_path}')
     print('  source scales: ' +
           '  '.join(f'{k}={v:.4f}' for k, v in scales.items()))

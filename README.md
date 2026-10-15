@@ -107,9 +107,17 @@ the ray cube); the others read the tables and cubes.
 
 ## Rebuilding the model
 
-The cubes on Zenodo are the output of the pipeline below; rerunning it
-reproduces them. Every step reads and writes the canonical files in
-`data/inputs/` and `data/cubes/` by default, overwriting them.
+The cubes on Zenodo are the output of the pipeline below at release v1.0.1;
+rerunning that release reproduces them. Every step reads and writes the
+canonical files in `data/inputs/` and `data/cubes/` by default, overwriting
+them.
+
+**Since v1.0.1.** Step 3 now places the ray cube's range axis correctly: v1.0.1
+labelled values computed at the range-cell centres (5, 15, 25 ... km) with the
+cell edges (0, 10, 20 ... km), so every lookup read a point 5 km further out.
+At 300 km altitude this delays the modelled arrival by 5-6 s between 200 and
+1000 km and changes the amplitude by about 1.5%. The Zenodo cubes and the
+paper's figures predate this fix; rerunning steps 3-5 applies it.
 
 | Step | Script | Output |
 |---|---|---|
