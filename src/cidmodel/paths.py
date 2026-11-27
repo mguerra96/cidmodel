@@ -110,6 +110,8 @@ _CUBE_KINDS = {
     'deposit':    ('deposit_raw', '.npz'),
     'dne_binned': ('dne_binned',  '.npz'),
     'dne_point':  ('dne_point',   '.npz'),
+    'dne_centroid': ('dne_centroid', '.npz'),
+    'dne_centroid_t0': ('dne_centroid_t0', '.npz'),
 }
 
 

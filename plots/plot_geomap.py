@@ -2,7 +2,7 @@
 plot_geomap.py
 ==============
 Standalone geographic overview map for the Myanmar M7.7 earthquake
-(28 March 2025, 06:20:56 UTC):
+(28 March 2025, 06:20:52 UTC):
 
   * USGS ShakeMap PGV contours (filled polygons, cm/s)
   * the USGS finite-fault surface trace, coloured by slip
@@ -578,7 +578,7 @@ def plot_geomap(pgv_polys, pgv_vals, f_lat, f_lon, f_slip, sub, mech,
     gl.top_labels = gl.right_labels = False
     gl.xlabel_style = gl.ylabel_style = {'size': 11}
 
-    ax.set_title('Myanmar M7.7, 28 March 2025 06:20:56 UTC\n'
+    ax.set_title('Myanmar M7.7, 28 March 2025 06:20:52 UTC\n'
                  'USGS ShakeMap PGV, finite-fault trace and GNSS receivers',
                  fontsize=14, fontweight='bold')
 

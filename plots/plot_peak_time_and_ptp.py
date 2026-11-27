@@ -51,6 +51,8 @@ import matplotlib.pyplot as plt
 
 from cidmodel import paths
 from plot_peak_time import MIN_PTP, peak_time
+
+NO_PEAK_T = 300.0   # s: synthetic maximum before this = no positive peak (revision 1)
 from plot_ptp_scatter import ptp
 
 # Regime tints, shared by both metrics: above the 1:1 line is the RED regime
@@ -205,7 +207,8 @@ def main(gen, sats=None, out=None, min_synth=0.05):
     # one axis and their widths are directly comparable.
     t_perp, a_perp = {}, {}
     for lab in labels:
-        m = np.isfinite(d[f't|{lab}']) & np.isfinite(d['t_max_s'])
+        m = (np.isfinite(d[f't|{lab}']) & np.isfinite(d['t_max_s'])
+             & (d[f't|{lab}'] >= NO_PEAK_T))
         t_perp[lab] = perp(d.loc[m, 't_max_s'], d.loc[m, f't|{lab}'])
         ma = (np.isfinite(d[f'a|{lab}']) & np.isfinite(d['amp_ptp'])
               & (d[f'a|{lab}'] > 0) & (d['amp_ptp'] > 0)
@@ -218,7 +221,13 @@ def main(gen, sats=None, out=None, min_synth=0.05):
     for j, lab in enumerate(labels):
         # --- row 1/2: time of peak ------------------------------------
         ax = axes[0, j]
-        m = np.isfinite(d[f't|{lab}']) & np.isfinite(d['t_max_s'])
+        ok = np.isfinite(d[f't|{lab}']) & np.isfinite(d['t_max_s'])
+        # No-peak arcs (revision 1): the synthetic maximum falls before
+        # NO_PEAK_T, i.e. the model has no positive peak in the CID window.
+        # Their own category -- left out of the plot and the lag statistics,
+        # only counted on the panel (an example arc is in Figure 7).
+        nopk = ok & (d[f't|{lab}'] < NO_PEAK_T)
+        m = ok & ~nopk
         x, y = d.loc[m, 't_max_s'].to_numpy(float), d.loc[m, f't|{lab}'].to_numpy(float)
 
         ax.fill_between(t_lim, t_lim, t_lim[1], color=C_HI, alpha=0.13,
@@ -233,6 +242,10 @@ def main(gen, sats=None, out=None, min_synth=0.05):
                     fontsize=9, color=C_LO_T)
         sc_t = ax.scatter(x, y, c=d.loc[m, 'dist_km'], cmap='viridis', s=34,
                           edgecolor='k', lw=0.4, zorder=3)
+        if nopk.any():      # not drawn, only counted; example arc in Figure 7
+            ax.annotate(f'{int(nopk.sum())} arcs with no positive\nsynthetic peak not shown',
+                        xy=(0.955, 0.115), xycoords='axes fraction', ha='right',
+                        va='bottom', fontsize=8, color='0.3')
         ax.set_xlim(*t_lim)
         ax.set_ylim(*t_lim)
         ax.set_aspect('equal')
@@ -242,7 +255,7 @@ def main(gen, sats=None, out=None, min_synth=0.05):
 
         dist_panel(axes[1, j], perp(x, y), '(s)', lim=t_half)
         resid = y - x
-        print(f'time  {lab:14s} n={int(m.sum()):3d}  '
+        print(f'time  {lab:14s} n={int(m.sum()):3d} (+{int(nopk.sum())} no-peak)  '
               f'median {np.median(resid):+7.1f} s  mean {resid.mean():+7.1f} s'
               f'  rms {np.sqrt((resid ** 2).mean()):6.1f} s')
 

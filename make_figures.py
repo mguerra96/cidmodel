@@ -23,10 +23,13 @@ from cidmodel import paths
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-# The eleven G11 arcs of Figure 7, in order of pierce-point range.
-FIG7_ARCS = ['YNYY_G11_1000', 'BNEU_G11_1000', 'CHMA_G11_1000', 'vast_G11_1000',
-             'UDON_G11_1000', 'NKAY_G11_1000', 'NKRM_G11_1000', 'NKNY_G11_1000',
-             'KMI6_G11_1000', 'CNBR_G11_1000', 'CHAN_G11_1000']
+# Figure 7 (revision 1, R1 minor 2): 11 arcs (12th cell = legend): every azimuth sector
+# with data and every range band; per group the arc whose fault lag is nearest the
+# group median.  Includes one secondary-population arc (CUSV_C40) and one no-peak
+# arc (snt1_G22).  The hand picks are drawn on each panel.
+FIG7_ARCS = ['SEPT_C01_1000', 'UTTD_C30_1000', 'YNKM_C05_1000', 'YNWS_G11_1000',
+             'snt1_G14_1000', 'snt1_G22_1000', 'CHMA_G11_1000', 'CUSV_E18_1000',
+             'CUSV_C40_1000', 'NKNY_G11_1000', 'CPN1_E15_1000']
 
 # figure number -> (script, arguments, file the script writes)
 FIGURES = {
@@ -36,8 +39,8 @@ FIGURES = {
     '4':  ('plot_travel_time.py', [], 'travel_time.png'),
     '5':  ('plot_ns_coupling_chain.py', [], 'ns_coupling_chain_t720.png'),
     '6':  ('plot_dne_slices_grid.py', [], 'dne_slices_grid_fault_vs_point.png'),
-    '7':  ('plot_synth_arcs.py', ['--sat', 'G11', '--page', '--arcs', *FIG7_ARCS],
-           'synth_arcs_G11_page.png'),
+    '7':  ('plot_synth_arcs.py', ['--page', '--arcs', *FIG7_ARCS],
+           'synth_arcs_page.png'),
     '8':  ('plot_peak_time_and_ptp.py', [], 'peak_time_and_ptp_min0p05.png'),
     'S1': ('plot_si_fault_distance.py', [], 'si_fault_distance.png'),
     'S2': ('plot_si_secondary_population.py', [], 'si_secondary_population.png'),

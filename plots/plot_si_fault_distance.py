@@ -41,6 +41,23 @@ def common_slope(x, t, off):
     return b, se
 
 
+def receiver_ci(x, t, off, station, nboot=4000, seed=0):
+    """95% CI of the offset, resampling whole receivers (revision 1, R1-M5).
+
+    Arcs of one receiver share its geometry and noise, so they are not
+    independent; the OLS 1-sigma treats them as if they were and is too narrow.
+    """
+    rng = np.random.default_rng(seed)
+    groups = [np.flatnonzero(station == s) for s in np.unique(station)]
+    vals = []
+    for _ in range(nboot):
+        i = np.concatenate([groups[j] for j in rng.integers(len(groups), size=len(groups))])
+        if off[i].all() or not off[i].any():
+            continue
+        vals.append(common_slope(x[i], t[i], off[i])[0][2])
+    return np.percentile(vals, [2.5, 97.5])
+
+
 def style(ax):
     ax.grid(alpha=0.25, lw=0.6)
     for s in ('top', 'right'):
@@ -70,17 +87,18 @@ def main(out=None):
         lim = x[~along].max() * 1.05
         q = x <= lim
         b, se = common_slope(x[q], t[q], ~along[q])
+        lo, hi = receiver_ci(x[q], t[q], ~along[q], p.station.to_numpy()[q])
         ax.axvspan(0, lim, color='0.94', lw=0, zorder=0)
         clusters(ax, x, t / 60, along)
         rs = np.linspace(0, lim, 50)
         ax.plot(rs, (b[0] + b[1] * rs) / 60, color=C_ALONG, lw=2, zorder=4)
         ax.plot(rs, (b[0] + b[2] + b[1] * rs) / 60, color=C_OFF, lw=2, ls='--', zorder=4)
-        ax.text(0.03, 0.97, f'({"ab"[j]})  off-rupture offset {b[2]:+.0f} ± {se[2]:.0f} s\n'
+        ax.text(0.03, 0.97, f'({"ab"[j]})  off-rupture offset {b[2]:+.0f} s [{lo:+.0f}, {hi:+.0f}]\n'
                             f'       common slope {1 / b[1]:.1f} km/s',
                 transform=ax.transAxes, va='top', fontsize=10.5)
         ax.set_ylim(8, 22.5)
         style(ax)
-        print(f'{xk}: offset {b[2]:+.0f} ± {se[2]:.0f} s, slope {1 / b[1]:.2f} km/s, fit to {lim:.0f} km')
+        print(f'{xk}: offset {b[2]:+.0f} s, receiver 95% CI [{lo:+.0f}, {hi:+.0f}] (OLS +/- {se[2]:.0f}), slope {1 / b[1]:.2f} km/s, fit to {lim:.0f} km')
 
         # --- amplitude: log-log power law and correlation of log amplitude
         ax = axes[1, j]

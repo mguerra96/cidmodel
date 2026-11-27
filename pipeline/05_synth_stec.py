@@ -71,7 +71,9 @@ from cidmodel.geometry import geo_to_km
 
 # Column name per source model.  `binned` is the finite fault -- the default
 # model -- so it gets the unqualified name.
-COLUMN = {'binned': 'synth_stec', 'point': 'synth_stec_point'}
+COLUMN = {'binned': 'synth_stec', 'point': 'synth_stec_point',
+          'centroid': 'synth_stec_centroid',
+          'centroid_t0': 'synth_stec_centroid_t0'}
 
 
 def fit_a0(col, obs, picks):
@@ -223,7 +225,7 @@ def main(sources, tag, suffix='', obs_path=None, a0=None, do_fit=True):
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument('--sources', nargs='+', default=['binned', 'point'],
-                    choices=['binned', 'point'],
+                    choices=list(COLUMN),
                     help='source models to integrate (default both)')
     ap.add_argument('--tag', default='',
                     help='dNe cube tag, i.e. dne_<source><tag>.npz (e.g. "_v3"; '

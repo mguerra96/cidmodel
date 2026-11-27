@@ -9,9 +9,12 @@ import datetime
 import os
 
 # --- Event -----------------------------------------------------------------
+# USGS us7000pn9s: epicentre of the PAGER solution (the preferred ComCat
+# origin, 22.011N 95.936E, is 1.5 km away); origin time 06:20:52 UTC.  The
+# finite-fault rupture times are counted from this origin as well.
 EQ_LAT  = 22.001
 EQ_LON  = 95.925
-EQ_TIME = datetime.datetime(2025, 3, 28, 6, 20, 56)
+EQ_TIME = datetime.datetime(2025, 3, 28, 6, 20, 52)
 
 R_EARTH_KM = 6371.0
 

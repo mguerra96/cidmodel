@@ -113,7 +113,7 @@ def pick_arcs(df, n, col_fault):
     return g.index[np.unique(take)].tolist()
 
 
-def draw_panel(ax, a, col_fault, col_point, tick_fs=7):
+def draw_panel(ax, a, col_fault, col_point, tick_fs=7, pick=None):
     """One arc's four curves on `ax`; returns (dist_km, az_deg) for the title.
 
     Split out of `main` so the single-sheet and per-satellite modes draw a
@@ -147,6 +147,13 @@ def draw_panel(ax, a, col_fault, col_point, tick_fs=7):
             label='trend + fault')
     ax.plot(t, trend + p, color=C_POINT, lw=1.3, ls='--', zorder=3,
             label='trend + point')
+
+    # The hand picks (onset t_arr, crest t_max), when the arc has them.
+    if pick is not None:
+        ax.axvline(pick['t_arr_s'], color='#7d3c98', lw=1.0, ls=':', zorder=2,
+                   label='picked onset')
+        ax.axvline(pick['t_max_s'], color='#7d3c98', lw=1.2, zorder=2,
+                   label='picked crest')
 
     mw = np.isfinite(f)
     if mw.any():
@@ -208,7 +215,7 @@ PAGE_PAD_IN = 0.045       # suptitle strip + bottom x-label, same units
 # The legend runs 50% over the tick size: it sits in an empty grid cell with
 # room to spare and is the first thing a reader consults.
 _FS_REF_W = 13.4
-PRINT_FS = {'title': 16.8, 'label': 16.8, 'tick': 14.4, 'legend': 21.6,
+PRINT_FS = {'title': 16.8, 'label': 16.8, 'tick': 14.4, 'legend': 16.8,
             'suptitle': 26.0}
 
 
@@ -240,16 +247,22 @@ def draw_sheet(df, arcs, col_fault, col_point, title, dest, ncol=4,
     fig, axes = plt.subplots(nrow, ncol, figsize=figsize, squeeze=False)
     axes = axes.ravel()
 
+    picks = pd.read_parquet(paths.ARRIVAL_PICKS).set_index('ArcID')
     for ax, arc in zip(axes, arcs):
         a = df[df['ArcID'] == arc].sort_values('t_s')
-        d, az = draw_panel(ax, a, col_fault, col_point, tick_fs=fs['tick'])
-        # On a page the panel is ~42 mm wide, which will not hold the ArcID,
-        # the range and the azimuth on one line -- so the station keeps its
-        # own line and the geometry goes beneath it.
+        d, az = draw_panel(ax, a, col_fault, col_point, tick_fs=fs['tick'],
+                           pick=picks.loc[arc] if arc in picks.index else None)
+        # On a page the panel is too narrow for the ArcID and the geometry on
+        # one line: the geometry is the title, station + satellite go small in
+        # the lower-right corner of the panel.
         ax.set_title(
-            (f'{arc.split("_")[0]}\n{d:.0f} km, az {az:.0f}$\\degree$' if page
+            (f'{d:.0f} km, az {az:.0f}$\\degree$' if page
              else rf'{arc}   {d:.0f} km, az {az:.0f}$\degree$'),
             fontsize=fs['title'], linespacing=1.15)
+        if page:
+            ax.text(0.97, 0.04, ' '.join(arc.split('_')[:2]), transform=ax.transAxes,
+                    ha='right', va='bottom', fontsize=0.8 * fs['tick'], zorder=6,
+                    bbox=dict(facecolor='white', edgecolor='none', alpha=0.8, pad=1.5))
 
     spare = list(axes[len(arcs):])
     for ax in spare:
@@ -265,7 +278,8 @@ def draw_sheet(df, arcs, col_fault, col_point, title, dest, ncol=4,
     for col in range(ncol):
         last = max((k for k in range(len(arcs)) if k % ncol == col),
                    default=None)
-        if last is not None:
+        # bottom row only: a column whose last cell holds the legend gets none
+        if last is not None and last // ncol == (len(arcs) - 1) // ncol:
             axes[last].set_xlabel('t after origin (s)', fontsize=fs['label'])
 
     # The legend goes in a SPARE cell when the arcs do not fill the grid --
@@ -278,8 +292,9 @@ def draw_sheet(df, arcs, col_fault, col_point, title, dest, ncol=4,
         spare[0].legend(handles, labels, fontsize=fs['legend'],
                         loc='center', frameon=False)
     else:
-        axes[0].legend(fontsize=fs['legend'], loc='upper left',
-                       framealpha=0.9)
+        # a full grid: one legend row under the panels, never over a trace
+        fig.legend(handles, labels, fontsize=0.6 * fs['legend'],
+                   loc='lower center', ncol=len(labels), frameon=False)
 
     # The title is one long sentence, so on a narrow sheet (a satellite with
     # one or two arcs is only 4-8 in wide) it must be WRAPPED and shrunk or it
@@ -304,12 +319,25 @@ def draw_sheet(df, arcs, col_fault, col_point, title, dest, ncol=4,
     wrapped = textwrap.fill(title, max(20, nch))
     nline = wrapped.count('\n') + 1
     fig.suptitle(wrapped, fontsize=sup_fs)
-    strip = (0.032 * w_in if page else 0.32)
-    fig.tight_layout(rect=(0, 0, 1, 1 - strip * nline / fig.get_figheight()))
+    # page: the strip is the title's own line height (~1.3 x its size)
+    strip = (1.3 * sup_fs / 72.0 + 0.1 if page else 0.32)
+    bottom = 0 if spare else 0.6 * fs['legend'] / 72.0 * 1.8 / fig.get_figheight()
+    fig.tight_layout(rect=(0, bottom, 1,
+                           1 - strip * nline / fig.get_figheight()),
+                     **(dict(pad=0.3, h_pad=0.2, w_pad=0.2) if page else {}))
     # 300 dpi for a page figure: it is already drawn at full size, so the
     # raster only has to carry that size honestly -- 600 on a 13 in sheet is
     # an 8000 px file for no visible gain.
-    fig.savefig(dest, dpi=(300 if page else 140))
+    if page:
+        # tight_layout leaves a blank band under the suptitle: sit the title
+        # just above the panel titles and crop the outer margin on save
+        fig.canvas.draw()
+        top = max(ax.title.get_window_extent().y1 for ax in axes[:ncol])
+        sup = fig._suptitle
+        sup.set_y(top / fig.bbox.height + 0.005)
+        sup.set_va('bottom')
+    fig.savefig(dest, dpi=(300 if page else 140),
+                **(dict(bbox_inches='tight', pad_inches=0.08) if page else {}))
     plt.close(fig)
     print('wrote', dest)
     return dest
@@ -351,8 +379,7 @@ def main(gen, arcs=None, n=12, out=None, obs_path=None, all_by_sat=False,
     arcs = arcs or pick_arcs(pool, n, COL_FAULT)
     draw_sheet(pool, arcs, COL_FAULT, COL_POINT,
                (f'{sat}: observed' if sat else 'Observed')
-               + r' sTEC against the synthetic $\delta$TEC laid on the '
-               'observed background',
+               + r' sTEC against the synthetic $\delta$TEC',
                out or paths.fig(
                    'synth_arcs' + paths.gen_suffix(gen)
                    + (f'_{sat}' if sat else '')

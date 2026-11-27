@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "If you use this software, please cite both the paper and the software."
 title: "cidmodel: forward model of coseismic ionospheric disturbances from finite-fault and point sources"
 type: software
-version: 1.0.1
+version: 1.1.0
 doi: 10.5281/zenodo.22961716
 license: MIT
 repository-code: "https://github.com/mguerra96/cidmodel"
@@ -20,11 +20,10 @@ keywords:
 references:
   - type: dataset
     title: "Observations and model output for \"The 2025 Mw 7.7 Myanmar Earthquake: Finite Fault Versus Point Source in Modeling Coseismic Ionospheric Disturbances\""
-    doi: 10.5281/zenodo.22958847
-    url: "https://doi.org/10.5281/zenodo.22958847"
+    doi: 10.5281/zenodo.22958846
+    url: "https://doi.org/10.5281/zenodo.22958846"
     publisher:
       name: Zenodo
-    version: "1.0"
     authors:
       - family-names: Guerra
         given-names: Marco
